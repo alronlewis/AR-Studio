@@ -39,18 +39,49 @@ $('resetTransform').onclick=()=>{const o=objects[selected];if(!o)return;snapshot
 $('undoBtn').onclick=()=>{if(!history.length)return;future.push(JSON.stringify(objects));objects=JSON.parse(history.pop());selected=Math.max(0,objects.length-1);renderObjects();loadControls();updateStage();renderObjectQRs();};
 $('redoBtn').onclick=()=>{if(!future.length)return;history.push(JSON.stringify(objects));objects=JSON.parse(future.pop());selected=Math.max(0,objects.length-1);renderObjects();loadControls();updateStage();renderObjectQRs();};
 $('resetView').onclick=()=>{$('stage').scrollTop=0;$('stage').scrollLeft=0;};
+async function compileQrTarget(qrElement){
+ const canvas=qrElement.querySelector('canvas');
+ if(!canvas)throw Error('QR image is not ready');
+ const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('Could not load generated QR image'));img.src=canvas.toDataURL('image/png');});
+ if(!window.MINDAR?.IMAGE?.Compiler)throw Error('MindAR compiler did not load');
+ const compiler=new MINDAR.IMAGE.Compiler();
+ await compiler.compileImageTargets([image],()=>{});
+ return new Blob([await compiler.exportData()],{type:'application/octet-stream'});
+}
 function viewerHtml(o){
  const title=escapeHtml(o.name);
- if(o.type==='model'&&objectAssets.get(o.id))return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script><style>html,body{margin:0;height:100%;background:#080b12;color:white;font:16px system-ui}model-viewer{width:100%;height:100%;--poster-color:#080b12}.label{position:fixed;top:12px;left:12px;z-index:2;background:#111c;padding:10px;border-radius:10px}</style></head><body><div class="label">'+title+' · Tap AR to place</div><model-viewer src="./assets/model.glb" ar ar-modes="webxr scene-viewer quick-look" camera-controls auto-rotate scale="'+o.scale+' '+o.scale+' '+o.scale+'" shadow-intensity="1"><button slot="ar-button" style="position:absolute;bottom:24px;left:50%;transform:translateX(-50%);padding:14px 22px;border:0;border-radius:24px;background:#7565f5;color:white">View in your space</button></model-viewer></body></html>';
- const ent=o.type==='text'?'<a-text value="'+escapeHtml(o.text)+'" position="'+o.x+' '+o.y+' '+o.z+'" rotation="'+o.rx+' '+o.ry+' '+o.rz+'" scale="'+o.scale+' '+o.scale+' '+o.scale+'" align="center" color="#ffffff"></a-text>':'<a-box position="'+o.x+' '+o.y+' '+o.z+'" rotation="'+o.rx+' '+o.ry+' '+o.rz+'" scale="'+o.scale+' '+o.scale+' '+o.scale+'" color="#8877ff"></a-box>';
- if(targetMind)return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script><script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script><style>html,body{margin:0;height:100%;background:#05070b;color:white;font:15px system-ui}.hint{position:fixed;z-index:4;top:12px;left:12px;right:12px;text-align:center;padding:12px;background:#101827dd}a-scene{position:fixed;inset:0}</style></head><body><div class="hint">Point camera at your '+(tracking==='artwork'?'artwork':'marker')+'</div><a-scene mindar-image="imageTargetSrc: ./assets/target.mind;autoStart:true;uiLoading:no;uiError:no;uiScanning:no" vr-mode-ui="enabled:false"><a-camera position="0 0 0" look-controls="enabled:false"></a-camera><a-entity mindar-image-target="targetIndex:0">'+(o.type==='model'?'<a-asset-item id="m" src="./assets/model.glb"></a-asset-item><a-gltf-model src="#m" position="'+o.x+' '+o.y+' '+o.z+'" rotation="'+o.rx+' '+o.ry+' '+o.rz+'" scale="'+o.scale+' '+o.scale+' '+o.scale+'"></a-gltf-model>':ent)+'</a-entity></a-scene></body></html>';
- return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script><style>html,body{margin:0;height:100%;background:#05070b;color:white;font:15px system-ui}.hint{position:fixed;top:12px;left:12px;right:12px;text-align:center;z-index:2}a-scene{position:fixed;inset:0}</style></head><body><div class="hint">'+title+' · Move your phone to place the object</div><a-scene webxr="optionalFeatures: hit-test,local-floor;referenceSpaceType:local-floor" vr-mode-ui="enabled:false"><a-camera position="0 1.6 0"></a-camera><a-entity position="0 0 -1">'+ent+'</a-entity></a-scene></body></html>';
+ const objectEntity=o.type==='model'
+  ? '<a-gltf-model src="#object-model" position="0 0 0" rotation="'+o.rx+' '+o.ry+' '+o.rz+'" scale="'+o.scale+' '+o.scale+' '+o.scale+'"></a-gltf-model>'
+  : o.type==='text'
+   ? '<a-text value="'+escapeHtml(o.text)+'" position="0 0 0" rotation="'+o.rx+' '+o.ry+' '+o.rz+'" scale="'+o.scale+' '+o.scale+' '+o.scale+'" align="center" color="#ffffff"></a-text>'
+   : '<a-box position="0 0 0" rotation="'+o.rx+' '+o.ry+' '+o.rz+'" scale="'+o.scale+' '+o.scale+' '+o.scale+'" color="#8877ff"></a-box>';
+ return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>'+title+' — AR</title><script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script><script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070b;color:white;font:15px system-ui}.hint{position:fixed;z-index:4;top:12px;left:12px;right:12px;text-align:center;padding:12px;border-radius:12px;background:#101827dd}a-scene{position:fixed;inset:0}</style></head><body><div class="hint">Point your camera at this printed QR code to see '+title+'</div><a-scene mindar-image="imageTargetSrc: ./assets/target.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no" vr-mode-ui="enabled:false" device-orientation-permission-ui="enabled:false"><a-assets>'+(o.type==='model'?'<a-asset-item id="object-model" src="./assets/model.glb"></a-asset-item>':'')+'</a-assets><a-camera position="0 0 0" look-controls="enabled:false"></a-camera><a-entity mindar-image-target="targetIndex:0">'+objectEntity+'</a-entity></a-scene></body></html>';
 }
-function exportProject(){if(!objects.length){alert('Add at least one object first.');return;}if(objects.some(o=>o.type==='model')&&!modelFile){alert('Select a GLB model for your 3D model object.');return;}if(targetFile&&!targetMind){alert('You selected a tracking image. Compile it first, or switch to standalone 3D AR.');return;}if(!window.JSZip){alert('ZIP library did not load. Refresh and try again.');return;}
+
+async function exportProject(){
+ if(!objects.length){alert('Add at least one object first.');return;}
+ if(objects.some(o=>o.type==='model'&&!objectAssets.get(o.id))){alert('Select a GLB file for each 3D model object.');return;}
+ if(!window.JSZip){alert('ZIP library did not load. Refresh and try again.');return;}
  const zip=new JSZip(),base=slugify($('projectName').value),root=zip.folder('experiences').folder(base);
- objects.forEach(o=>{const folder=root.folder(o.id);folder.file('index.html',viewerHtml(o));if(o.type==='model'&&objectAssets.get(o.id))folder.folder('assets').file('model.glb',objectAssets.get(o.id));if(targetMind)folder.folder('assets').file('target.mind',targetMind);});
- const urls=objects.map(o=>objectUrl(o));zip.file('README.txt','AR STUDIO — OBJECT QR EXPORT\n\nEach object has its own launch URL and QR code. Upload the complete experiences folder to the root of your AR-Studio repository, preserving all folders. Wait for GitHub Pages deployment before scanning.\n\n'+objects.map((o,i)=>o.name+': '+urls[i]).join('\n')+'\n\nFor artwork/marker tracking, compile the tracking target before exporting. Standalone GLB objects use model-viewer AR; browser/device AR support varies.');
- zip.generateAsync({type:'blob'}).then(blob=>{const a=document.createElement('a'),u=URL.createObjectURL(blob);a.href=u;a.download=base+'-object-ar-projects.zip';a.click();setTimeout(()=>URL.revokeObjectURL(u),5000);$('savedState').textContent='Object experiences exported · upload ZIP contents to GitHub Pages';});
+ $('qrStatus').textContent='Preparing unique QR tracking targets…';
+ try{
+  await loadQRLibrary();
+  for(const o of objects){
+   const qrCard=[...$('qrcode').querySelectorAll('.object-qr-card')].find(card=>card.querySelector('b')?.textContent===o.name);
+   if(!qrCard)throw Error('QR missing for '+o.name);
+   const targetMindForObject=await compileQrTarget(qrCard);
+   const folder=root.folder(o.id);
+   folder.file('index.html',viewerHtml(o));
+   folder.folder('assets').file('target.mind',targetMindForObject);
+   if(o.type==='model'&&objectAssets.get(o.id))folder.folder('assets').file('model.glb',objectAssets.get(o.id));
+  }
+  const urls=objects.map(o=>objectUrl(o));
+  zip.file('README.txt','AR STUDIO — QR MARKER AR EXPORT\n\nEach object's QR code is both its launch link and its image-tracking marker. Print the QR at a reasonable size. Scan it with your phone camera to open its AR page, allow camera access, then point the page camera at the same printed QR to see the object anchored above it.\n\nUpload the experiences folder from this ZIP to the root of your AR-Studio GitHub repository, preserving all folders. Wait for GitHub Pages deployment before scanning. The QR links will return 404 until those folders are published.\n\n'+objects.map((o,i)=>o.name+': '+urls[i]).join('\n')+'\n');
+  const blob=await zip.generateAsync({type:'blob'}),a=document.createElement('a'),u=URL.createObjectURL(blob);
+  a.href=u;a.download=base+'-qr-marker-ar-projects.zip';a.click();setTimeout(()=>URL.revokeObjectURL(u),5000);
+  $('qrStatus').textContent='✓ QR marker targets compiled. Downloaded AR projects; upload experiences/ to GitHub Pages to activate links.';
+  $('savedState').textContent='Object QR AR projects exported · publish ZIP contents to GitHub Pages';
+ }catch(e){console.error(e);$('qrStatus').textContent='Export failed: '+e.message;alert('Could not prepare QR-tracking experience: '+e.message);}
 }
 $('projectName').addEventListener('input',()=>{clearTimeout(window.qrRefreshTimer);window.qrRefreshTimer=setTimeout(renderObjectQRs,300);});
 $('exportBtn').onclick=exportProject;$('exportBtn2').onclick=exportProject;
