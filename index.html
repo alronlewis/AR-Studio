@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AR Studio — WebAR Builder</title>
+<link rel="stylesheet" href="studio.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<header class="topbar"><div class="logo"><span class="cube">◆</span> AR STUDIO <small>WEBAR BUILDER</small></div><div class="top-actions"><span id="savedState">Local project</span><button id="exportBtn" class="primary">Export WebAR project</button></div></header>
+<main class="layout">
+<aside class="sidebar">
+  <div class="side-title">PROJECT</div>
+  <label class="field">Experience name<input id="projectName" value="My AR Experience"></label>
+  <div class="side-title">ASSETS</div>
+  <div class="asset"><div><b>Image target</b><small>Compiled MindAR .mind file</small></div><label class="upload">Add target<input id="targetFile" type="file" accept=".mind"></label><div id="targetName" class="filename">No target loaded</div></div>
+  <div class="asset"><div><b>3D object</b><small>GLB / GLTF model</small></div><label class="upload">Add model<input id="modelFile" type="file" accept=".glb,.gltf"></label><div id="modelName" class="filename">No model loaded</div></div>
+  <div class="asset"><div><b>Target preview image</b><small>Optional JPG / PNG</small></div><label class="upload">Add image<input id="imageFile" type="file" accept="image/*"></label><div id="imageName" class="filename">No preview image</div></div>
+  <div class="side-title">OBJECT TRANSFORM</div>
+  <label class="field">Scale <output id="scaleOut">0.25</output><input id="scale" type="range" min=".01" max="2" step=".01" value=".25"></label>
+  <label class="field">Position X <output id="xOut">0</output><input id="posX" type="range" min="-1" max="1" step=".01" value="0"></label>
+  <label class="field">Position Y <output id="yOut">0</output><input id="posY" type="range" min="-1" max="1" step=".01" value="0"></label>
+  <label class="field">Position Z <output id="zOut">0</output><input id="posZ" type="range" min="-.5" max=".5" step=".01" value="0"></label>
+  <label class="field">Rotation X <output id="rxOut">0°</output><input id="rotX" type="range" min="-180" max="180" step="1" value="0"></label>
+  <label class="field">Rotation Y <output id="ryOut">0°</output><input id="rotY" type="range" min="-180" max="180" step="1" value="0"></label>
+  <label class="field">Rotation Z <output id="rzOut">0°</output><input id="rotZ" type="range" min="-180" max="180" step="1" value="0"></label>
+  <button id="resetTransform" class="secondary wide">Reset transform</button>
+</aside>
+<section class="workarea">
+  <div class="workhead"><div><b>Scene preview</b><small>Image-tracking AR • Mobile browser</small></div><div class="pills"><span class="pill">IMAGE TRACKING</span><span class="pill green" id="assetStatus">WAITING FOR ASSETS</span></div></div>
+  <div class="preview">
+    <div class="preview-card">
+      <div class="camera-mark">⌖</div><div class="preview-title">Your AR scene is ready to configure</div>
+      <p>Upload a compiled <code>.mind</code> target and a <code>.glb</code> model. Then export the project and open it on an HTTPS host.</p>
+      <div id="previewTarget" class="target-preview"><span>Target image preview</span></div>
+      <div class="preview-model">◇</div>
+    </div>
+  </div>
+  <div class="bottom-info"><div><b>How this works</b><p>Compile your artwork image into a MindAR target, add a 3D model, adjust its transform, and export a deployable WebAR site.</p></div><button id="openCompiler" class="secondary">Open target compiler ↗</button></div>
+</section>
+<aside class="rightbar">
+  <div class="side-title">PUBLISH</div>
+  <div class="publish-card"><h3>Deploy your experience</h3><p>Export creates a website folder you can host on GitHub Pages, Netlify, or any HTTPS static host.</p><button id="exportBtn2" class="primary wide">Export project</button></div>
+  <div class="side-title">QR CODE</div>
+  <div class="qr-card"><div id="qrcode"></div><p>QR code will point to your published viewer URL.</p><input id="viewerUrl" placeholder="https://your-site.example/"><button id="makeQR" class="secondary wide">Generate QR</button><button id="downloadQR" class="secondary wide">Download QR PNG</button></div>
+  <div class="side-title">CHECKLIST</div>
+  <ul class="checklist"><li id="checkTarget">○ Image target added</li><li id="checkModel">○ 3D model added</li><li>○ Export project</li><li>○ Host with HTTPS</li><li>○ Scan QR on phone</li></ul>
+  <div class="tip"><b>Tip</b><p>Camera access requires HTTPS (or localhost). For reliable tracking, use a detailed target image with good contrast.</p></div>
+</aside>
+</main>
+<script src="studio.js"></script>
+</body></html>
